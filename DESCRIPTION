@@ -1,0 +1,13 @@
+Package: lasars
+Title: Tools to Explore Response Style in Survey Responding
+Version: 0.1.0
+Authors@R: c(person("Jess", "Grimmond", email = "jess.grimmond@newcastle.edu.au", role = c("aut", "cre")), person("Hawkins", "Guy", role = "aut"), person("Brown", "Scott", role = "aut"), person("Gronau", "Quentin", role = "aut"))
+Description: Provides tools to fit the latent state and response style (lasars) model to survey data using either Particle Metropolis within Gibbs ('pmwg') or maximum likelihood estimation. The package facilitates estimation of less-biased latent state and psychologically interpretable response style parameters.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    purrr,
+    pmwg,
+    stats
