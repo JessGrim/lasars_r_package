@@ -1,6 +1,7 @@
 ^lasars\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
-^\\.github$
+^\.github$
 ^doc$
 ^Meta$
+^cran-comments\.md$

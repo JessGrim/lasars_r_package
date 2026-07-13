@@ -55,6 +55,7 @@ Estimates latent-state and response-style parameters from
 Likert-scale survey data.
 }
 \examples{
+\donttest{
 result <- run_lasars(
   data = example_lasars_data,
   resp_opts = 5,
@@ -67,6 +68,6 @@ result <- run_lasars(
   iterations = 100,
   particles = 10
 )
-
+}
 
 }

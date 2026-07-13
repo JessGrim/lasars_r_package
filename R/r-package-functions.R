@@ -560,6 +560,7 @@ latstat_ll_func <- function(x,
 #' @return A pmwg sampled object
 #'
 #' @examples
+#' \donttest{
 #' result <- run_lasars(
 #'   data = example_lasars_data,
 #'   resp_opts = 5,
@@ -572,7 +573,7 @@ latstat_ll_func <- function(x,
 #'   iterations = 100,
 #'   particles = 10
 #' )
-#'
+#'}
 #'
 #' @export
 run_lasars <- function(data,
