@@ -11,10 +11,9 @@ latstat_ll_func(
   resp_opts,
   subject_colname,
   response_colname,
-  subscale_colname,
+  latentState_colname,
   direction_colname,
-  rev_score_id,
-  sampling_method = "pmwg"
+  rev_score_id
 )
 }
 \arguments{
@@ -30,17 +29,37 @@ latstat_ll_func(
 
 \item{response_colname}{A character string representing the chosen Likert scale response}
 
-\item{subscale_colname}{A character string representing the latent state identifier variable}
+\item{latentState_colname}{A character string representing the latent state identifier variable}
 
 \item{direction_colname}{A character string representing the reverse-coding variable}
 
 \item{rev_score_id}{A character string representing the level of the direction variable which indicates reverse-scored items}
-
-\item{sampling_method}{A character string which reflects the sampling approach to be taken.}
 }
 \value{
 A likelihood value
 }
 \description{
-This function is the powerhouse of the model
+The powerhouse of the latstat model - calculates the likelihood of the observed data,
+given the set of input parameters.
+If sample = TRUE, input parameters will be used to generate data.
+}
+\examples{
+\dontrun{
+ll_func <- latstat_ll_func(x = c("mu.extra" = 0.2,
+                                 "mu.open" = 0.1,
+                                 "mu.consc" = 0.1,
+                                 "mu.agree" = 0.2,
+                                 "mu.neuro" = 0.1,
+                                 "cut.1" = -0.3,
+                                 "cut.2" = -0.2,
+                                 "cut.4" = 0.5,
+                                 sd = 0.3),
+                           data = example_lasars_data,
+                           resp_opts = 5,
+                           subject_colname = "subject",
+                           response_colname = "response",
+                           latentState_colname = "subscale",
+                           direction_colname = "reverse",
+                           rev_score_id = "TRUE")
+}
 }

@@ -9,7 +9,7 @@ run_latstat(
   resp_opts,
   subject_colname,
   response_colname,
-  subscale_colname,
+  latentState_colname,
   direction_colname,
   rev_score_id,
   priors = NULL,
@@ -28,7 +28,7 @@ run_latstat(
 
 \item{response_colname}{A character string representing the chosen Likert scale response}
 
-\item{subscale_colname}{A character string representing the latent state identifier variable}
+\item{latentState_colname}{A character string representing the latent state identifier variable}
 
 \item{direction_colname}{A character string representing the reverse-coding variable}
 
@@ -49,4 +49,17 @@ A pmwg sampled object
 }
 \description{
 This function runs the model over the data
+}
+\examples{
+\dontrun{
+result <- run_latstat(
+  data = example_lasars_data,
+  resp_opts = 5,
+  subject_colname = "subject",
+  response_colname = "response",
+  latentState_colname = "subscale",
+  direction_colname = "reverse",
+  rev_score_id = "TRUE"
+)
+}
 }

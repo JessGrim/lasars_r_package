@@ -7,7 +7,7 @@
 make_priors(
   data,
   resp_opts,
-  subscale_colname,
+  latentState_colname,
   est_directPref = NULL,
   mu_prior = 0,
   centrePref_prior = 0,
@@ -23,7 +23,7 @@ make_priors(
 
 \item{resp_opts}{A numeric value representing the number of response options available in the scale}
 
-\item{subscale_colname}{A character string representing the latent state identifier variable}
+\item{latentState_colname}{A character string representing the latent state identifier variable}
 
 \item{est_directPref}{A boolean value reflecting whether a directionPref parameter should be estimated}
 
@@ -45,5 +45,15 @@ make_priors(
 A list of priors
 }
 \description{
-This function creates priors and startpoints for sampling
+Creates priors for pmwg sampling
+}
+\examples{
+test_priors <- make_priors(data = example_lasars_data,
+                           resp_opts = 5,
+                           latentState_colname = "subscale",
+                           est_directPref = TRUE,
+                           mu_prior = 0.5,
+                           centrePref_prior = 0.3)
+test_priors
+
 }

@@ -35,3 +35,9 @@ A data frame
 \description{
 This function generates posterior-predictive data
 }
+\examples{
+\dontrun{
+pp_data <- gen_pp_data(sampled = result)
+}
+
+}

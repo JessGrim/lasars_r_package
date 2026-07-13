@@ -1,8 +1,8 @@
 #Internal funcs####
 #Function creates a vector with parameter names
-get_latstat_parNames <- function(data, no_of_resp_options, subscale){
+get_latstat_parNames <- function(data, no_of_resp_options, latentState){
   #Mu pars
-  mus <- unique(data[[subscale]])
+  mus <- unique(data[[latentState]])
   mus <- paste("mu.", mus, sep = "")
 
   #Find the fixed cut
@@ -119,12 +119,12 @@ check_ll_func_args <- function(ll_func, ...) {
 #USEABLE FUNCS####
 #' Make pmwg priors
 #'
-#' This function creates priors and startpoints for sampling
+#' Creates priors for pmwg sampling
 #'
 #' @param data A trial-wise data frame
 #' @param resp_opts A numeric value representing the number of response options available in the scale
 #' @param est_directPref A boolean value reflecting whether a directionPref parameter should be estimated
-#' @param subscale_colname A character string representing the latent state identifier variable
+#' @param latentState_colname A character string representing the latent state identifier variable
 #' @param mu_prior A numeric value representing the prior for the mu parameter
 #' @param centrePref_prior A numeric value representing the prior for the centrePref_prior parameter
 #' @param oddsPref_prior A numeric value representing the prior for the oddsPref parameter
@@ -133,10 +133,20 @@ check_ll_func_args <- function(ll_func, ...) {
 #' @param diag_prior A numeric value representing the prior for the diagonal
 #' @param analysis A character string taking the value of 'lasars' or 'latstat' which indicates which model variant is being used
 #' @return A list of priors
+#'
+#' @examples
+#' test_priors <- make_priors(data = example_lasars_data,
+#'                            resp_opts = 5,
+#'                            latentState_colname = "subscale",
+#'                            est_directPref = TRUE,
+#'                            mu_prior = 0.5,
+#'                            centrePref_prior = 0.3)
+#' test_priors
+#'
 #' @export
 make_priors <- function(data,
                         resp_opts,
-                        subscale_colname,
+                        latentState_colname,
                         est_directPref = NULL,
                         mu_prior = 0,
                         centrePref_prior = 0,
@@ -157,8 +167,8 @@ make_priors <- function(data,
     }
 
     if(est_directPref){
-      parNames <- c(paste0("mu.", unique(data[[subscale_colname]])), "centrePref", "oddsPref", "directionPref")
-      priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[subscale_colname]]))),
+      parNames <- c(paste0("mu.", unique(data[[latentState_colname]])), "centrePref", "oddsPref", "directionPref")
+      priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[latentState_colname]]))),
                                        centrePref_prior,
                                        oddsPref_prior,
                                        directionPref_prior),
@@ -168,8 +178,8 @@ make_priors <- function(data,
 
 
     } else{
-      parNames <- c(paste0("mu.", unique(data[[subscale_colname]])), "centrePref", "oddsPref")
-      priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[subscale_colname]]))),
+      parNames <- c(paste0("mu.", unique(data[[latentState_colname]])), "centrePref", "oddsPref")
+      priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[latentState_colname]]))),
                                        centrePref_prior,
                                        oddsPref_prior),
                      theta_mu_var = diag(rep(diag_prior, length(parNames))))
@@ -181,9 +191,9 @@ make_priors <- function(data,
 
   } else if(analysis == 'latstat'){
 
-    parNames <- get_latstat_parNames(data, resp_opts, subscale_colname)
+    parNames <- get_latstat_parNames(data, resp_opts, latentState_colname)
 
-    priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[subscale_colname]]))),
+    priors <- list(theta_mu_mean = c(rep(mu_prior, length(unique(data[[latentState_colname]]))),
                                      rep(threshold_prior, (sum(!grepl("mu", parNames)))-1), 1),
                    theta_mu_var = diag(rep(diag_prior, length(parNames))))
 
@@ -202,7 +212,9 @@ make_priors <- function(data,
 
 #' Likelihood function for lasars Model
 #'
-#' This function is the powerhouse of the model
+#' The powerhouse of the lasars model - calculates the likelihood of the observed data,
+#' given the set of input parameters.
+#' If sample = TRUE, input parameters will be used to generate data.
 #'
 #' @param x A named vector of parameter estimates
 #' @param data A trial-wise data frame
@@ -210,11 +222,30 @@ make_priors <- function(data,
 #' @param resp_opts A numeric value representing the number of response options available in the scale
 #' @param subject_colname A character string representing the subject identifier variable
 #' @param response_colname A character string representing the chosen Likert scale response
-#' @param subscale_colname A character string representing the latent state identifier variable
+#' @param latentState_colname A character string representing the latent state identifier variable
 #' @param direction_colname A character string representing the reverse-coding variable
 #' @param rev_score_id A character string representing the level of the direction variable which indicates reverse-scored items
-#' @param sampling_method A character string which reflects the sampling approach to be taken.
 #' @return A likelihood value
+#'
+#' @examples
+#' \dontrun{
+#' ll_func <- lasars_ll_func(x = c("mu.extra" = 0.2,
+#'                                "mu.open" = 0.1,
+#'                                "mu.consc" = 0.1,
+#'                                "mu.agree" = 0.2,
+#'                                "mu.neuro" = 0.1,
+#'                                "centrePref" = -.3,
+#'                                "oddsPref" = 0.2,
+#'                                "directPref" = -0.5),
+#'                            data = example_lasars_data,
+#'                            resp_opts = 5,
+#'                            subject_colname = "subject",
+#'                            response_colname = "response",
+#'                            latentState_colname = "subscale",
+#'                            direction_colname = "reverse",
+#'                            rev_score_id = "TRUE")
+#'}
+#'
 #' @export
 lasars_ll_func <- function(x,
                            data,
@@ -222,10 +253,9 @@ lasars_ll_func <- function(x,
                            resp_opts,
                            subject_colname,
                            response_colname,
-                           subscale_colname,
+                           latentState_colname,
                            direction_colname = NULL,
-                           rev_score_id = NULL,
-                           sampling_method = 'pmwg') {
+                           rev_score_id = NULL) {
   #DEFINE PARAMETERS####
   #Fix sd
   sd = 1
@@ -269,7 +299,7 @@ lasars_ll_func <- function(x,
   cutpoints <- make_thresholds(resp_opts, centrePref, oddsPref, directionPref)
 
   #DEFINE MUS
-  scales <- sort(unique(data[[subscale_colname]]))
+  scales <- sort(unique(data[[latentState_colname]]))
 
   mu <- c()
   for (i in 1:length(scales)){
@@ -292,18 +322,18 @@ lasars_ll_func <- function(x,
 
           #do positively-scored items
           if (j != rev_score_id){
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             samples[use_trials] <- stats::rnorm(sum(use_trials), mu[i], sd)
 
             #Do reverse-scored items
           } else{
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             samples[use_trials] <- stats::rnorm(sum(use_trials), -mu[i], sd)
           }
         }
         #If not estimating directionPref:
       } else{
-        use_trials <- data[[subscale_colname]] == i
+        use_trials <- data[[latentState_colname]] == i
         samples[use_trials] <- stats::rnorm(sum(use_trials), mu[i], sd)
       }
     }
@@ -324,20 +354,20 @@ lasars_ll_func <- function(x,
 
           #Do positively-scored lls
           if(j != rev_score_id){
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), mu[i], sd)))
             like[use_trials] <- p[data[[response_colname]][use_trials]]
 
             #Do reverse-scored lls
           } else {
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), -mu[i], sd)))
             like[use_trials] <- p[data[[response_colname]][use_trials]]
           }
         }
         #If not estimating directionPref
       } else{
-        use_trials <- data[[subscale_colname]] == i
+        use_trials <- data[[latentState_colname]] == i
         p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), mu[i], sd)))
         like[use_trials] <- p[data[[response_colname]][use_trials]]
       }
@@ -350,20 +380,16 @@ lasars_ll_func <- function(x,
 
     out <- sum(log(pmax(like, 1e-10))) # for protection against log 0 problems
 
-    if(sampling_method == 'pmwg'){
-      return(out)
-    } else if(sampling_method == 'mle'){
-      return(-out)
-    } else{
-      stop("Incorrect method '", sampling_method, "' passed to ll_func.")
-    }
+    return(out)
   }
 }
 
 
 #' Likelihood function for Latent State Only Model
 #'
-#' This function is the powerhouse of the model
+#' The powerhouse of the latstat model - calculates the likelihood of the observed data,
+#' given the set of input parameters.
+#' If sample = TRUE, input parameters will be used to generate data.
 #'
 #' @param x A named vector of parameter estimates
 #' @param data A trial-wise data frame
@@ -371,11 +397,30 @@ lasars_ll_func <- function(x,
 #' @param resp_opts A numeric value representing the number of response options available in the scale
 #' @param subject_colname A character string representing the subject identifier variable
 #' @param response_colname A character string representing the chosen Likert scale response
-#' @param subscale_colname A character string representing the latent state identifier variable
+#' @param latentState_colname A character string representing the latent state identifier variable
 #' @param direction_colname A character string representing the reverse-coding variable
 #' @param rev_score_id A character string representing the level of the direction variable which indicates reverse-scored items
-#' @param sampling_method A character string which reflects the sampling approach to be taken.
 #' @return A likelihood value
+#'
+#' @examples
+#' \dontrun{
+#' ll_func <- latstat_ll_func(x = c("mu.extra" = 0.2,
+#'                                  "mu.open" = 0.1,
+#'                                  "mu.consc" = 0.1,
+#'                                  "mu.agree" = 0.2,
+#'                                  "mu.neuro" = 0.1,
+#'                                  "cut.1" = -0.3,
+#'                                  "cut.2" = -0.2,
+#'                                  "cut.4" = 0.5,
+#'                                  sd = 0.3),
+#'                            data = example_lasars_data,
+#'                            resp_opts = 5,
+#'                            subject_colname = "subject",
+#'                            response_colname = "response",
+#'                            latentState_colname = "subscale",
+#'                            direction_colname = "reverse",
+#'                            rev_score_id = "TRUE")
+#'}
 #' @export
 latstat_ll_func <- function(x,
                             data,
@@ -383,10 +428,9 @@ latstat_ll_func <- function(x,
                             resp_opts,
                             subject_colname,
                             response_colname,
-                            subscale_colname,
+                            latentState_colname,
                             direction_colname,
-                            rev_score_id,
-                            sampling_method = 'pmwg') {
+                            rev_score_id) {
 
   no_of_cuts <- resp_opts - 1
   fixed_cut <- ifelse(no_of_cuts%% 2 == 0, (ceiling(no_of_cuts/2) + 1), ceiling(no_of_cuts/2))
@@ -426,7 +470,7 @@ latstat_ll_func <- function(x,
   }
 
   #Mus
-  scales <- sort(unique(data[[subscale_colname]]))
+  scales <- sort(unique(data[[latentState_colname]]))
 
   mu <- c()
   for (i in 1:length(scales)){
@@ -443,11 +487,11 @@ latstat_ll_func <- function(x,
       for(i in scales) {
         for (j in unique(data[[direction_colname]])){
           if(j != rev_score_id){
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), mu[i], sd)))
             like[use_trials] <- p[data[[response_colname]][use_trials]]
           } else if (j == rev_score_id) {
-            use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+            use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
             p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), -mu[i], sd)))
             like[use_trials] <- p[data[[response_colname]][use_trials]]
           }
@@ -455,7 +499,7 @@ latstat_ll_func <- function(x,
       }
     } else{
       for(i in scales){
-        use_trials <- data[[subscale_colname]] == i
+        use_trials <- data[[latentState_colname]] == i
         p <- diff(c(0, stats::pnorm(c(cutpoints, Inf), mu[i], sd)))
         like[use_trials] <- p[data[[response_colname]][use_trials]]
       }
@@ -463,13 +507,8 @@ latstat_ll_func <- function(x,
 
     out <- sum(log(pmax(like, 1e-10)))
 
-    if(sampling_method == 'pmwg'){
-      return(out)
-    } else if(sampling_method == 'mle'){
-      return(-out)
-    } else{
-      stop("Incorrect method '", sampling_method, "' passed to ll_func.")
-    }
+    return(out)
+
 
   } else{
 
@@ -481,11 +520,11 @@ latstat_ll_func <- function(x,
       for (j in unique(data[[direction_colname]])) {
         if (j != rev_score_id){
           #use_trials is a vector which indicates which trials to use this time around
-          use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+          use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
           #samples gets a random sample from a norm dist for all trials which satisfy this loop's conditions
           samples[use_trials] <- stats::rnorm(sum(use_trials), mu[i], sd)
         } else if (j == rev_score_id) {
-          use_trials <- data[[subscale_colname]] == i & data[[direction_colname]] == j
+          use_trials <- data[[latentState_colname]] == i & data[[direction_colname]] == j
           samples[use_trials] <- stats::rnorm(sum(use_trials), -mu[i], sd)
         }
       }
@@ -500,16 +539,17 @@ latstat_ll_func <- function(x,
 }
 
 
-#' Runs the lasars model
+#' Fit the lasars model
 #'
-#' This function runs the model over the data
+#' Estimates latent-state and response-style parameters from
+#' Likert-scale survey data.
 #'
 #' @param data A trial-wise data frame
 #' @param resp_opts A numeric value representing the number of response options available in the scale
 #' @param est_directPref A boolean value reflecting whether an directionPref parameter should be estimated
 #' @param subject_colname A character string representing the subject identifier variable
 #' @param response_colname A character string representing the chosen Likert scale response
-#' @param subscale_colname A character string representing the latent state identifier variable
+#' @param latentState_colname A character string representing the latent state identifier variable
 #' @param direction_colname A character string representing the reverse-coding variable
 #' @param rev_score_id A character string representing the level of the direction variable which indicates reverse-scored items
 #' @param priors A list of priors
@@ -518,13 +558,29 @@ latstat_ll_func <- function(x,
 #' @param particles A numeric value reflecting the number of proposed particles on each sampling iteration
 #' @param ... Additional parameters to pass into the pmwg run_stage calls
 #' @return A pmwg sampled object
+#'
+#' @examples
+#' result <- run_lasars(
+#'   data = example_lasars_data,
+#'   resp_opts = 5,
+#'   est_directPref = TRUE,
+#'   subject_colname = "subject",
+#'   response_colname = "response",
+#'   latentState_colname = "subscale",
+#'   direction_colname = "reverse",
+#'   rev_score_id = "TRUE",
+#'   iterations = 100,
+#'   particles = 10
+#' )
+#'
+#'
 #' @export
 run_lasars <- function(data,
                        resp_opts,
                        est_directPref,
                        subject_colname,
                        response_colname,
-                       subscale_colname,
+                       latentState_colname,
                        direction_colname = NULL,
                        rev_score_id = NULL,
                        priors = NULL,
@@ -536,7 +592,7 @@ run_lasars <- function(data,
   column_vars <- c(
     subject_colname   = subject_colname,
     response_colname  = response_colname,
-    subscale_colname  = subscale_colname
+    latentState_colname  = latentState_colname
   )
 
   # find which are not in the data columns
@@ -620,7 +676,7 @@ run_lasars <- function(data,
       priors <- make_priors(data = data,
                             resp_opts = resp_opts,
                             est_directPref = est_directPref,
-                            subscale_colname = subscale_colname)
+                            latentState_colname = latentState_colname)
     }
 
     #Rename subject column
@@ -631,7 +687,7 @@ run_lasars <- function(data,
                               resp_opts = resp_opts,
                               subject_colname = subject_colname,
                               response_colname = response_colname,
-                              subscale_colname = subscale_colname,
+                              latentState_colname = latentState_colname,
                               direction_colname = direction_colname,
                               rev_score_id = rev_score_id)
 
@@ -650,8 +706,8 @@ run_lasars <- function(data,
   } else if(sampling_method == 'mle'){
     #DEFINE STARTPOINTS (dynamically)####
     #mu pars
-    mu_starts <- c(rep(0, length(unique(data[[subscale_colname]]))))
-    names(mu_starts) <- c(paste0('mu.', unique(data[[subscale_colname]])))
+    mu_starts <- c(rep(0, length(unique(data[[latentState_colname]]))))
+    names(mu_starts) <- c(paste0('mu.', unique(data[[latentState_colname]])))
 
     #Response pars
     if(est_directPref == TRUE){
@@ -680,12 +736,12 @@ run_lasars <- function(data,
         par = start_vals,
         fn = lasars_ll_func,
         data = this_subj_data,
-        subscale_colname = subscale_colname,
+        control = list(fnscale = -1),
+        latentState_colname = latentState_colname,
         response_colname = response_colname,
         direction_colname = direction_colname,
         rev_score_id = rev_score_id,
         resp_opts = resp_opts,
-        sampling_method = sampling_method,
         method = "L-BFGS-B",
         lower = rep(lower_bound, length(start_vals)),
         upper = rep(upper_bound, length(start_vals))
@@ -712,7 +768,7 @@ run_lasars <- function(data,
 #' @param resp_opts A numeric value representing the number of response options available in the scale
 #' @param subject_colname A character string representing the subject identifier variable
 #' @param response_colname A character string representing the chosen Likert scale response
-#' @param subscale_colname A character string representing the latent state identifier variable
+#' @param latentState_colname A character string representing the latent state identifier variable
 #' @param direction_colname A character string representing the reverse-coding variable
 #' @param rev_score_id A character string representing the level of the direction variable which indicates reverse-scored items
 #' @param priors A list of priors
@@ -721,13 +777,26 @@ run_lasars <- function(data,
 #' @param particles A numeric value reflecting the number of proposed particles on each sampling iteration
 #' @param ... Additional parameters to pass into the pmwg run_stage calls
 #' @return A pmwg sampled object
+#'
+#' @examples
+#' \dontrun{
+#' result <- run_latstat(
+#'   data = example_lasars_data,
+#'   resp_opts = 5,
+#'   subject_colname = "subject",
+#'   response_colname = "response",
+#'   latentState_colname = "subscale",
+#'   direction_colname = "reverse",
+#'   rev_score_id = "TRUE"
+#' )
+#'}
 #' @export
 #Run original version
 run_latstat <- function(data,
                         resp_opts,
                         subject_colname,
                         response_colname,
-                        subscale_colname,
+                        latentState_colname,
                         direction_colname,
                         rev_score_id,
                         priors = NULL,
@@ -740,7 +809,7 @@ run_latstat <- function(data,
   column_vars <- c(
     subject_colname   = subject_colname,
     response_colname  = response_colname,
-    subscale_colname  = subscale_colname,
+    latentState_colname  = latentState_colname,
     direction_colname = direction_colname
   )
 
@@ -817,7 +886,7 @@ run_latstat <- function(data,
     if(is.null(priors)){
       priors <- make_priors(data = data,
                             resp_opts = resp_opts,
-                            subscale_colname = subscale_colname,
+                            latentState_colname = latentState_colname,
                             analysis = 'latstat')
     }
 
@@ -829,7 +898,7 @@ run_latstat <- function(data,
                               resp_opts = resp_opts,
                               subject_colname = subject_colname,
                               response_colname = response_colname,
-                              subscale_colname = subscale_colname,
+                              latentState_colname = latentState_colname,
                               direction_colname = direction_colname,
                               rev_score_id = rev_score_id)
 
@@ -848,7 +917,7 @@ run_latstat <- function(data,
 
   } else if(sampling_method == 'mle'){
     #DEFINE STARTPOINTS (dynamically)####
-    parNames <- get_latstat_parNames(data, resp_opts, subscale_colname)
+    parNames <- get_latstat_parNames(data, resp_opts, latentState_colname)
     start_vals <- c(rep(0, length(parNames) - 1), 1)
 
     names(start_vals) <- parNames
@@ -869,11 +938,11 @@ run_latstat <- function(data,
         par = start_vals,
         fn = latstat_ll_func,
         data = this_subj_data,
-        subscale_colname = subscale_colname,
+        control = list(fnscale = -1),
+        latentState_colname = latentState_colname,
         response_colname = response_colname,
         direction_colname = direction_colname,
         rev_score_id = rev_score_id,
-        sampling_method = sampling_method,
         resp_opts = resp_opts,
         method = "L-BFGS-B",
         lower = rep(lower_bound, length(start_vals)),
@@ -903,6 +972,12 @@ run_latstat <- function(data,
 #' @param subject_colname A character string representing the subject identifier variable
 #' @param ... Additional parameters to pass into the pmwg run_stage calls
 #' @return A data frame
+#'
+#' @examples
+#' \dontrun{
+#' pp_data <- gen_pp_data(sampled = result)
+#' }
+#'
 #' @export
 gen_pp_data <- function(sampled,
                         n = 20,
@@ -970,14 +1045,20 @@ gen_pp_data <- function(sampled,
     for(i in 1:n){
       if(sampling_method == 'pmwg'){
         this_subj_pars <- sampled$samples$alpha[,s, iterations[i]]
-      }
 
-      #Generate data
-      this_iter_pp <- ll_func(x = this_subj_pars,
-                              data = this_subj_data,
-                              sample = TRUE,
-                              subject_colname = subject_colname,
-                              ...)
+        #Generate data
+        this_iter_pp <- ll_func(x = this_subj_pars,
+                                data = this_subj_data,
+                                sample = TRUE,
+                                ...)
+      } else{
+        #Generate data
+        this_iter_pp <- ll_func(x = this_subj_pars,
+                                data = this_subj_data,
+                                sample = TRUE,
+                                subject_colname = subject_colname,
+                                ...)
+      }
 
       #Join this data to existing subj data
       this_iter_pp$iter <- i
@@ -993,3 +1074,21 @@ gen_pp_data <- function(sampled,
 }
 
 
+
+
+
+#' Example dataset for lasars
+#'
+#' A small Big-5 dataset used in examples and vignettes.
+#'
+#' @format A data frame with 50 participants and 5 latent states:
+#' \describe{
+#'   \item{subject}{Subject identifier}
+#'   \item{item}{Survey item identifier}
+#'   \item{response}{Chosen Likert scale response}
+#'   \item{subscale}{Latent state identifier}
+#'   \item{reverse}{Identifies positively- and reverse-scored items}
+#' }
+#'
+#' @source Open Source Psychometrics
+"example_lasars_data"

@@ -2,7 +2,7 @@
 % Please edit documentation in R/r-package-functions.R
 \name{run_lasars}
 \alias{run_lasars}
-\title{Runs the lasars model}
+\title{Fit the lasars model}
 \usage{
 run_lasars(
   data,
@@ -10,7 +10,7 @@ run_lasars(
   est_directPref,
   subject_colname,
   response_colname,
-  subscale_colname,
+  latentState_colname,
   direction_colname = NULL,
   rev_score_id = NULL,
   priors = NULL,
@@ -31,7 +31,7 @@ run_lasars(
 
 \item{response_colname}{A character string representing the chosen Likert scale response}
 
-\item{subscale_colname}{A character string representing the latent state identifier variable}
+\item{latentState_colname}{A character string representing the latent state identifier variable}
 
 \item{direction_colname}{A character string representing the reverse-coding variable}
 
@@ -51,5 +51,22 @@ run_lasars(
 A pmwg sampled object
 }
 \description{
-This function runs the model over the data
+Estimates latent-state and response-style parameters from
+Likert-scale survey data.
+}
+\examples{
+result <- run_lasars(
+  data = example_lasars_data,
+  resp_opts = 5,
+  est_directPref = TRUE,
+  subject_colname = "subject",
+  response_colname = "response",
+  latentState_colname = "subscale",
+  direction_colname = "reverse",
+  rev_score_id = "TRUE",
+  iterations = 100,
+  particles = 10
+)
+
+
 }

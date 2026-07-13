@@ -1,0 +1,162 @@
+---
+title: "Getting Started with lasars"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with lasars}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+The lasars package provides tools for estimating latent states and response styles from Likert-scale survey data. By explicitly modelling response tendencies, the package separates response behaviour from substantive latent-state estimates. This can reduce bias in survey scores and provide insight into individual differences in responding.
+
+This vignette introduces the basic lasars workflow using the default Particle Metropolis within Gibbs (PMwG) estimation method and briefly describes alternative modelling options available in the package.
+
+```{r setup}
+library(lasars)
+```
+
+# Example Dataset
+`example_lasars_data` contains responses from 10 participants who completed a 50-item International Personality Item Pool (IPIP) questionnaire. The data include positively and negatively worded items and are therefore well suited for demonstrating response-style estimation.
+
+```{r data}
+head(example_lasars_data)
+```
+
+# Running the Analysis
+To fit a lasars model we provide:
+
+- the data
+- the number of possible response options
+- whether a directional preference parameter should be estimated
+- participant identifier
+- response identifier
+- latent-state identifier
+
+It is generally recommended to estimate a Directional Preference parameter where the data allows (with a reasonable number of reverse-coded items throughout) because this captures a wider range of response behaviours. When estimating the Directional Preference parameter (`est_directPref = TRUE`), users must provide additional information identifying reverse-coded items. 
+
+Additional PMwG (the default sampling method) settings, such as `iterations` and `particles`, may also be supplied, along with user-defined priors. Although sensible defaults are provided, we use smaller values in this vignette to reduce computation time. For substantive analyses, larger values are generally recommended to ensure adequate sampling. Note: These settings will generate a warning that the PMwG sampler did not finish adaptation phase early; this is fine for these demonstration purposes but you should revise iteration and/or particle settings if this error is received during analysis.
+
+```{r run_lasars}
+result <- run_lasars(data = example_lasars_data,
+                     resp_opts = 5, 
+                     est_directPref = TRUE,
+                     subject_colname = "subject", 
+                     response_colname = "response", 
+                     latentState_colname = "subscale", 
+                     direction_colname = "reverse",
+                     rev_score_id = 'TRUE',
+                     iterations = 100, #Optional - speed up vignette
+                     particles = 15 #Optional - speed up vignette
+                     )
+```
+
+# The Output
+The PMwG object contains posterior samples at multiple levels:
+- alpha contains subject-level parameter estimates.
+- theta_mu contains group-level means.
+- theta_sig contains estimated covariance matrices.
+
+These posterior distributions can be summarised using posterior means, medians, credible intervals, or other Bayesian summary statistics.
+
+```{r model_output}
+subject_level_ests <-  result$samples$alpha[,,]
+group_level_ests <- result$samples$theta_mu[,]
+covariance_mtx_ests <- result$samples$theta_sig[,,]
+```
+
+
+# Maximum-Likelihood Estimation
+It is also possible to set `sampling_method = 'mle'`, which overrides the default PMwG sampling method in favour of a simpler maximum-likelihood method.
+```{r mle_method}
+mle_result <- run_lasars(data = example_lasars_data,
+                     resp_opts = 5, 
+                     est_directPref = TRUE,
+                     subject_colname = "subject", 
+                     response_colname = "response", 
+                     latentState_colname = "subscale", 
+                     direction_colname = "reverse",
+                     rev_score_id = 'TRUE',
+                     sampling_method = 'mle')
+head(mle_result)
+```
+While this allows for much faster sampling, it no longer allows for the advantages of the hierarchical Bayesian PMwG approach. This means the sampling result is a data frame with a single estimate for each parameter for each person. In this way, the output may be simpler to interpret, but it does not include a posterior distribution which allows for uncertainty in parameter estimates to be quantified through credible intervals and posterior summaries.
+
+# Latent State Only Analysis (`run_latstat()`)
+A second analysis is also included in this package - the latstat model, which estimates only latent state parameters. This model adopts the approach described in Grimmond et al. (2025), whereby response style is captured through the estimation of absolute threshold values making response style difficult to interpret in a psychologically meaningful way. Given the difficulty in interpreting the Odds Preference parameter for surveys with more than 5 response options, the latstat model may provide greater flexibility for latent-state estimation and be preferred in applications to larger response formats. 
+
+The latstat analysis takes the same input parameters as the lasars model, except the `est_directPref` parameter, and always requires the `direction_colname` and `rev_score_id` parameters. As with the lasars analysis, the default `sampling_method` is PMwG, but an 'mle' option is available.
+```{r run_latstat, eval = FALSE}
+latstat_result <- run_latstat(data = example_lasars_data, 
+                              resp_opts = 5, 
+                              subject_colname = "subject", 
+                              response_colname = "response",
+                              latentState_colname = "subscale",
+                              direction_colname = "reverse",
+                              rev_score_id = "TRUE")
+```
+
+# Choosing Between Models
+The default lasars model is recommended when:
+- response-style estimates are of substantive interest
+- reverse-coded items are limited or absent
+- surveys contain five or fewer response options
+
+The latstat model may be preferable when:
+- latent-state estimation is the only goal
+- surveys contain six or more response options
+- reverse-coded items are present
+
+# Other Functions
+There are three other functions in the lasars package which users may choose to use. Though none of these are necessary, they allow the user extra control of model settings, sampling methodology and allow for easy model-fit assessment.
+
+The first is the `make_priors()` which does what it says on the tin: it allows the user to make a prior object appropriate for PMwG estimation based on the shape of the input data frame. This takes a data frame, the number of response options and the latent state column name as required inputs. If the `analysis = "lasars"` (which is the default), an `est_directPref` parameter will also be required. The function will then take additional inputs for different prior values, allowing users to set their own informative priors where necessary
+```{r make_priors}
+test_priors <- make_priors(data = example_lasars_data, 
+                           resp_opts = 5, 
+                           latentState_colname = "subscale",
+                           est_directPref = TRUE, 
+                           mu_prior = 0.5,
+                           centrePref_prior = 0.3)
+
+test_priors
+```
+The output of the `make_priors()` function can then be passed into the `run_lasars()` or `run_latstat()` functions to allow for more flexibility with prior settings. 
+
+```{r prior_output, eval = FALSE}
+testing_priors_result <- run_lasars(data = example_lasars_data,
+                     resp_opts = 5, 
+                     est_directPref = TRUE,
+                     subject_colname = "subject", 
+                     response_colname = "response", 
+                     latentState_colname = "subscale", 
+                     direction_colname = "reverse",
+                     rev_score_id = 'TRUE',
+                     priors = test_priors)
+```
+
+The package also contains the likelihood functions for both analyses: `lasars_ll_func()` and `latstat_ll_func()`. If model users wish to apply these methods outside of the PMwG or maximum-likelihood frameworks provided in this package, these likelihood functions can be used or adapted as necessary. 
+
+Finally, the `gen_pp_data()` function generates simulated data, based on estimated parameter values, allowing for model-fit to be assessed. If the sampled object is a PMwG object, the information about the likelihood function and original data structure to be emulated are already contained within the results object. When `sampling_method = 'mle'`, additional parameter inputs are necessary, including the likelihood function used and the original data frame the model was fit to. The default is to generate 20 sets of simulated data which will take the same form as the observed data frame.
+
+```{r gen_pp_data}
+pp_data <- gen_pp_data(sampled = result)
+
+head(pp_data)
+```
+
+# References
+Grimmond, J., Brown, S. D., & Hawkins, G. E. (2025). A solution to the pervasive problem of response bias in self-reports. Proceedings of the National Academy of Sciences, 122(3), e2412807122.
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

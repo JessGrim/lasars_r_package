@@ -3,3 +3,6 @@
 .Rproj.user
 check/
 *.Rcheck
+inst/doc
+/doc/
+/Meta/
